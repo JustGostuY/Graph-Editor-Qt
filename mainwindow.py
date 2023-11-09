@@ -7,7 +7,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from collections import defaultdict
 from PySide6.QtWidgets import QApplication, QMainWindow, QTableWidgetItem
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QFile
 
 # Important:
 # You need to run the following command to generate the ui_form.py file
@@ -24,17 +24,18 @@ class MainWindow(QMainWindow):
     dostmatrix = []
     vzaimmatrix = []
     primmatrix = []
+    dekstramatrix = []
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         self.listFunctions = [self.ui.check_smej, self.ui.check_dost, self.ui.check_vzaim,
-                            self.ui.check_printgraph, self.ui.check_eiler, self.ui.check_minostPrim,
-                            self.ui.check_components, self.ui.check_dekstra, self.ui.check_minostKruskal]
-        self.listChecked = [0,0,0,0,0,0,0,0,0]
+                              self.ui.check_printgraph, self.ui.check_eiler, self.ui.check_minostPrim,
+                              self.ui.check_components, self.ui.check_dekstra, self.ui.check_minostKruskal]
+        self.listChecked = [0, 0, 0, 0, 0, 0, 0, 0, 0]
         self.currentMatrix = 1
-        #Connections
+        # Connections
         self.ui.button_addver.clicked.connect(self.addEdge)
         self.ui.button_delver.clicked.connect(self.delEdge)
         self.ui.button_addgraph.clicked.connect(self.addGraph)
@@ -44,6 +45,7 @@ class MainWindow(QMainWindow):
         self.ui.button_func.clicked.connect(self.executeFunctions)
         self.ui.button_changeTable.clicked.connect(self.updateMatrix)
         self.ui.check_minostPrim.clicked.connect(self.update_combobox_state)
+        self.ui.check_dekstra.clicked.connect(self.update_combobox_state_2)
         for i in range(0, len(self.listFunctions)):
             self.listFunctions[i].clicked.connect(self.updateFunc)
         # --------
@@ -68,16 +70,15 @@ class MainWindow(QMainWindow):
                 adjacency_matrix[j][i] = weight
 
         return adjacency_matrix
+
     def showError(self, typeError: str):
         self.ui.label_commandline.setText(f">> {typeError}")
-
 
     def showResult(self, typeResult: str):
         self.ui.label_commandline.setText(f">> {typeResult}")
 
-
     def addEdge(self):
-        if(self.validationEdge() == 1):
+        if (self.validationEdge() == 1):
             self.setSupportVar_edit()
             self.currentGraph.add(tuple(self.supportVar))
             self.update_currentGraph()
@@ -87,7 +88,6 @@ class MainWindow(QMainWindow):
         else:
             self.showError("Некорректная вершина")
             return 0
-
 
     def addGraph(self):
         localeVar = self.format_string(self.ui.edit_pastegraph.text())
@@ -101,9 +101,8 @@ class MainWindow(QMainWindow):
             self.showError("Некорректный граф")
             return 0
 
-
     def delEdge(self):
-        if(self.validationEdge() == 1):
+        if (self.validationEdge() == 1):
             self.setSupportVar_edit()
             if tuple(self.supportVar) in self.currentGraph:
                 self.currentGraph.remove(tuple(self.supportVar))
@@ -117,7 +116,6 @@ class MainWindow(QMainWindow):
         else:
             self.showError("Некорректная вершина")
             return 0
-
 
     def setSupportVar_edit(self):
         self.supportVar.append(self.ui.edit_for.text())
@@ -144,6 +142,8 @@ class MainWindow(QMainWindow):
         if len(self.currentGraph) != 0:
             self.currentGraph.clear()
             self.clearSupportVar()
+            self.clear_matrix()
+            self.updateMatrix()
             self.update_currentGraph()
             self.showResult("Текущий граф удален")
         else:
@@ -151,6 +151,10 @@ class MainWindow(QMainWindow):
 
         return 1
 
+    def clear_matrix(self):
+        self.primmatrix.clear()
+        self.dekstramatrix.clear()
+        self.vzaimmatrix.clear()
 
     def format_string(self, input_str):
         pattern = re.compile(r"\(([^,]+),\s*([^,]+),\s*(\d+)\)")
@@ -158,18 +162,18 @@ class MainWindow(QMainWindow):
         formatted_str = re.sub(r"''", "'", formatted_str)
         return formatted_str
 
-
     def validationGraph(self, testGraph: str):
         try:
             tuple_set = eval(testGraph)
             if isinstance(tuple_set, set):
-                if all(isinstance(item, tuple) and len(item) == 3 and isinstance(item[0], str) and isinstance(item[1], str) and isinstance(item[2], int) for item in tuple_set):
+                if all(isinstance(item, tuple) and len(item) == 3 and isinstance(item[0], str) and isinstance(item[1],
+                                                                                                              str) and isinstance(
+                        item[2], int) for item in tuple_set):
                     return True
-        except Exception as e:
+        except Exception:
             pass
 
         return False
-
 
     def validationEdge(self):
         if len(self.ui.edit_for.text()) == 0 or len(self.ui.edit_to.text()) == 0:
@@ -177,58 +181,60 @@ class MainWindow(QMainWindow):
         else:
             return 1
 
-
     def save_lastGraph(self):
         pass
+
     def updateEdit_for(self):
         self.ui.edit_for.setText(self.ui.combo_for.currentText())
 
-
     def updateEdit_to(self):
         self.ui.edit_to.setText(self.ui.combo_to.currentText())
+
     def updateFunc(self):
         for i in range(0, len(self.listFunctions)):
             self.listChecked[i] = self.listFunctions[i].isChecked()
 
     def executeFunctions(self):
-        if self.listChecked[0]: #smej
+        if self.listChecked[0]:  # smej
             if len(self.currentGraph) == 0:
                 self.showError("Граф пуст")
                 return 0
             if self.ui.check_orient.isChecked() == True:
-                self.smejmatrix = self.generate_sorted_adjacency_matrix(self.currentGraph, self.ui.check_orient.isChecked())
+                self.smejmatrix = self.generate_sorted_adjacency_matrix(self.currentGraph,
+                                                                        self.ui.check_orient.isChecked())
             else:
-                self.smejmatrix = self.generate_sorted_adjacency_matrix(self.currentGraph, self.ui.check_orient.isChecked())
+                self.smejmatrix = self.generate_sorted_adjacency_matrix(self.currentGraph,
+                                                                        self.ui.check_orient.isChecked())
             self.showResult("Выполнено")
             self.updateMatrix()
-        if self.listChecked[1]: #dost
+        if self.listChecked[1]:  # dost
             if len(self.currentGraph) == 0:
                 self.showError("Граф пуст")
                 return 0
             self.dostmatrix = self.generate_reachability_matrix(self.smejmatrix)
             self.showResult("Выполнено")
             self.updateMatrix()
-        if self.listChecked[2]: #vzaim
+        if self.listChecked[2]:  # vzaim
             if len(self.currentGraph) == 0:
                 self.showError("Граф пуст")
                 return 0
             self.vzaimmatrix = self.generate_mutual_reachability_matrix(self.smejmatrix)
             self.showResult("Выполнено")
             self.updateMatrix()
-        if self.listChecked[3]: #print graph
+        if self.listChecked[3]:  # print graph
             if len(self.currentGraph) == 0:
                 self.showError("Граф пуст")
                 return 0
             self.printGraph(self.currentGraph, self.ui.check_orient.isChecked())
             self.showResult("Выполнено")
-        if self.listChecked[4]: #eiler
+        if self.listChecked[4]:  # eiler
             is_eulerian, is_semi_eulerian = self.is_eulerian(self.currentGraph, self.ui.check_orient.isChecked())
             if len(self.currentGraph) == 0:
                 self.showError("Граф пуст")
                 return 0
             self.ui.edit_eiler.setText(f"Эйлеровость, полуэйлеровость: {is_eulerian}, {is_semi_eulerian}")
             self.showResult("Выполнено")
-        if self.listChecked[5]: #prim
+        if self.listChecked[5]:  # prim
             if self.ui.check_orient.isChecked():
                 self.showError("Граф должен быть неориентированный (Прим)")
                 return 0
@@ -241,19 +247,28 @@ class MainWindow(QMainWindow):
                 return 0
 
             result = self.strong_components_weighted(self.currentGraph)
+            sorted_sets = [sorted(s) for s in result]
+            sorted_list = sorted(sorted_sets, key=lambda s: s[0])
+
             if self.listChecked[4]:
                 support_text = self.ui.edit_eiler.toPlainText()
-                self.ui.edit_eiler.setText(support_text + f"; Компоненты сил. связности: {result}")
+                self.ui.edit_eiler.setText(support_text + f"; Компоненты сил. связности: {sorted_list}")
             else:
-                self.ui.edit_eiler.setText(f"Компоненты сил. связности: {result}")
+                self.ui.edit_eiler.setText(f"Компоненты сил. связности: {sorted_list}")
             self.showResult("Выполнено")
 
         if self.listChecked[7]:
-            pass
+            if len(self.currentGraph) == 0:
+                self.showError("Граф пуст")
+                return 0
+            self.dekstramatrix = self.create_dekstra(self.currentGraph, self.ui.combo_vertices_2.currentText())
+            self.updateMatrix()
+            self.showResult("Выполнено")
         if self.listChecked[8]:
             pass
         if all(element == False for element in self.listChecked):
             self.showError("Ни одна функция не выбрана")
+
     def update_combobox_state(self):
         if len(self.currentGraph) == 0:
             self.showError("Граф пуст")
@@ -265,6 +280,79 @@ class MainWindow(QMainWindow):
             vertices.add(edge[1])
         self.ui.combo_vertices.addItems(sorted(vertices))
         self.ui.combo_vertices.setEnabled(self.ui.check_minostPrim.isChecked())
+
+    def update_combobox_state_2(self):
+        if len(self.currentGraph) == 0:
+            self.showError("Граф пуст")
+            return 0
+        self.ui.combo_vertices_2.clear()
+        vertices = set()
+        for edge in self.currentGraph:
+            vertices.add(edge[0])
+            vertices.add(edge[1])
+        self.ui.combo_vertices_2.addItems(sorted(vertices))
+        self.ui.combo_vertices_2.setEnabled(self.ui.check_dekstra.isChecked())
+
+    def find_shortest_path(self, graph_data, start, end, allowed_nodes=None):
+        g = nx.DiGraph()
+        g.add_weighted_edges_from(graph_data)
+
+        if allowed_nodes:
+            g = g.subgraph(allowed_nodes)
+
+        try:
+            shortest_path = nx.shortest_path(g, source=start, target=end, weight='weight')
+            distance = nx.shortest_path_length(g, source=start, target=end, weight='weight')
+            if len(shortest_path) > 1:
+                return [shortest_path[len(shortest_path) - 2], distance]
+            return [shortest_path[0], distance]
+        except nx.NetworkXNoPath:
+            return ["-", "-"]
+        except ValueError:
+            return ["-", "-"]
+        except nx.NodeNotFound:
+            return ["-", "-"]
+
+    def get_all_nodes(self, graph_data):
+        g = nx.DiGraph()
+        g.add_weighted_edges_from(graph_data)
+        return sorted(list(g.nodes()))
+
+    def create_dekstra(self, graph, start_node):
+        nodes = self.get_all_nodes(graph)
+        step = 0
+        checked_nodes = sorted({start_node})
+        list_steps = []
+        while checked_nodes != nodes:
+            distances = []
+            paths = []
+            for i in nodes:
+                end_node = i
+                allowed_nodes = checked_nodes.copy()
+                allowed_nodes.append(end_node)
+                path_dis = self.find_shortest_path(graph, start_node, end_node, allowed_nodes)
+                if path_dis[0] == end_node:
+                    paths.append("-")
+                else:
+                    paths.append(path_dis[0])
+                distances.append(path_dis[1])
+
+            distances = [float('inf') if isinstance(elem, str) else elem for elem in distances]
+            sup_dis = distances.copy()
+            for i in range(step + 1):
+                sup_dis.remove(min(sup_dis))
+
+            min_dis = min(sup_dis)
+            min_index = distances.index(min_dis)
+            add_node = nodes[min_index]
+            distances = ['-' if isinstance(elem, float) else elem for elem in distances]
+            list_steps.append([step, checked_nodes.copy(), add_node, min_dis, distances, paths])
+            checked_nodes.append(add_node)
+            checked_nodes.sort()
+            step += 1
+
+        return list_steps
+
     def fill_table(self, table, data):
         table.setRowCount(len(data))
         table.setColumnCount(len(data[0]))
@@ -298,7 +386,6 @@ class MainWindow(QMainWindow):
         np.fill_diagonal(mutual_reach_matrix, 1)
         return mutual_reach_matrix.astype(int)
 
-
     def is_eulerian(self, graph, is_directed=False):
         in_degree = defaultdict(int)
         out_degree = defaultdict(int)
@@ -307,20 +394,19 @@ class MainWindow(QMainWindow):
             out_degree[edge[0]] += 1
             in_degree[edge[1]] += 1
 
-        odd_degree_count = sum(1 for vertex in set(in_degree.keys()) | set(out_degree.keys()) if (in_degree[vertex] + out_degree[vertex]) % 2 != 0)
+        odd_degree_count = sum(1 for vertex in set(in_degree.keys()) | set(out_degree.keys()) if
+                               (in_degree[vertex] + out_degree[vertex]) % 2 != 0)
 
         is_eulerian = odd_degree_count == 0
         is_semi_eulerian = odd_degree_count == 2 if not is_directed else False
 
         return is_eulerian, is_semi_eulerian
 
-
     def strong_components_weighted(self, graph_edges):
         G = nx.DiGraph()
         G.add_weighted_edges_from(graph_edges)
 
         return sorted(list(nx.strongly_connected_components(G)))
-
 
     def updateMatrix(self):
         selected_matrices = []
@@ -339,6 +425,11 @@ class MainWindow(QMainWindow):
 
         if self.ui.check_minostPrim.isChecked() and len(self.primmatrix) != 0:
             selected_matrices.append(("Минимальное остовное дерево (Прим)", self.primmatrix))
+
+        if self.ui.check_dekstra.isChecked() and len(self.dekstramatrix) != 0:
+            selected_matrices.append(
+                (f"Кратчайшие пути из вершины {self.ui.combo_vertices_2.currentText()}", self.dekstramatrix))
+
         if selected_matrices:
             current_matrix, current_data = selected_matrices[self.currentMatrix - 1]
             self.fill_table(self.ui.table_main, current_data)
@@ -372,12 +463,12 @@ class MainWindow(QMainWindow):
 
             node_colors = [colors[node] for node in G.nodes()]
             edge_colors = ['red' if edge in min_spanning_tree.edges() else 'gray' for edge in G.edges()]
-            nx.draw(G, pos, with_labels=True, node_size=700, node_color=node_colors, font_size=8, font_color="black", edge_color=edge_colors)
+            nx.draw(G, pos, with_labels=True, node_size=700, node_color=node_colors, font_size=12, font_color="red",
+                    edge_color=edge_colors)
             nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
 
             plt.title("Неориентированный граф с минимальным остовным деревом")
             plt.show()
-
 
     def Prim(self, graph_edges, start_node):
         selected_nodes = {start_node}
@@ -385,13 +476,13 @@ class MainWindow(QMainWindow):
         selected_edges = []
 
         while len(selected_nodes) < len(set(node for edge in graph_edges for node in edge[:2])):
-            possible_edges = [edge for edge in graph_edges if edge[0] in selected_nodes and edge[1] not in selected_nodes or
+            possible_edges = [edge for edge in graph_edges if
+                              edge[0] in selected_nodes and edge[1] not in selected_nodes or
                               edge[1] in selected_nodes and edge[0] not in selected_nodes]
 
             min_edge = min(possible_edges, key=lambda x: x[2])
             selected_edges.append(min_edge)
             selected_nodes.add(min_edge[0] if min_edge[1] in selected_nodes else min_edge[1])
-
 
         mst_list = []
         addonlist = [start_node]
@@ -407,8 +498,16 @@ class MainWindow(QMainWindow):
 
         return mst_list
 
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+
+    style_file = QFile("style.css")
+    style_file.open(QFile.ReadOnly | QFile.Text)
+    style = str(style_file.readAll(), encoding='utf-8')
+    app.setStyleSheet(style)
+
     widget = MainWindow()
     widget.show()
+
     sys.exit(app.exec())

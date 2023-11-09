@@ -1,0 +1,4 @@
+numpy==1.26.0
+networkx==3.2.1
+matplotlib==3.8.1
+PySide6==6.6.0
