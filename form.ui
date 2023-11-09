@@ -330,6 +330,9 @@
        <height>16</height>
       </rect>
      </property>
+     <property name="styleSheet">
+      <string notr="true"/>
+     </property>
      <property name="text">
       <string>Вставить граф</string>
      </property>
@@ -355,6 +358,12 @@
      </property>
      <property name="cursor">
       <cursorShape>PointingHandCursor</cursorShape>
+     </property>
+     <property name="whatsThis">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+     <property name="styleSheet">
+      <string notr="true"/>
      </property>
      <property name="text">
       <string>Вставить</string>
@@ -620,7 +629,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
     </widget>
     <widget class="QCheckBox" name="check_dekstra">
      <property name="enabled">
-      <bool>false</bool>
+      <bool>true</bool>
      </property>
      <property name="geometry">
       <rect>
@@ -670,6 +679,19 @@ li.checked::marker { content: &quot;\2612&quot;; }
      </property>
      <property name="cursor">
       <cursorShape>PointingHandCursor</cursorShape>
+     </property>
+    </widget>
+    <widget class="QComboBox" name="combo_vertices_2">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
+     <property name="geometry">
+      <rect>
+       <x>650</x>
+       <y>40</y>
+       <width>31</width>
+       <height>22</height>
+      </rect>
      </property>
     </widget>
    </widget>
@@ -751,6 +773,9 @@ li.checked::marker { content: &quot;\2612&quot;; }
     </widget>
    </widget>
    <widget class="Line" name="line">
+    <property name="enabled">
+     <bool>true</bool>
+    </property>
     <property name="geometry">
      <rect>
       <x>330</x>
