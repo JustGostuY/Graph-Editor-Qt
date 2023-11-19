@@ -1,11 +1,7 @@
 # This Python file uses the following encoding: utf-8
 import sys
 import ast
-import re
-import numpy as np
-import networkx as nx
-import matplotlib.pyplot as plt
-from collections import defaultdict
+from graph_functions import *
 from PySide6.QtWidgets import QApplication, QMainWindow, QTableWidgetItem
 from PySide6.QtCore import QFile
 
@@ -17,14 +13,14 @@ from ui_form import Ui_MainWindow
 
 
 class MainWindow(QMainWindow):
-    currentGraph = set()
-    supportVar = []
-
-    smejmatrix = []
-    dostmatrix = []
-    vzaimmatrix = []
-    primmatrix = []
-    dekstramatrix = []
+    # containers
+    current_graph = set()
+    support_list = []
+    adjacency_matrix = []
+    reachability_matrix = []
+    mutual_reachability_matrix = []
+    mst_step_list = []
+    shortest_paths_list = []
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -36,217 +32,174 @@ class MainWindow(QMainWindow):
         self.listChecked = [0, 0, 0, 0, 0, 0, 0, 0, 0]
         self.currentMatrix = 1
         # Connections
-        self.ui.button_addver.clicked.connect(self.addEdge)
-        self.ui.button_delver.clicked.connect(self.delEdge)
-        self.ui.button_addgraph.clicked.connect(self.addGraph)
-        self.ui.button_cleargraph.clicked.connect(self.clear_currentGraph)
-        self.ui.combo_for.currentIndexChanged.connect(self.updateEdit_for)
-        self.ui.combo_to.currentIndexChanged.connect(self.updateEdit_to)
-        self.ui.button_func.clicked.connect(self.executeFunctions)
-        self.ui.button_changeTable.clicked.connect(self.updateMatrix)
-        self.ui.check_minostPrim.clicked.connect(self.update_combobox_state)
-        self.ui.check_dekstra.clicked.connect(self.update_combobox_state_2)
+        self.ui.button_addver.clicked.connect(self.add_edge)
+        self.ui.button_delver.clicked.connect(self.remove_edge)
+        self.ui.button_addgraph.clicked.connect(self.add_graph)
+        self.ui.button_cleargraph.clicked.connect(self.clear_current_graph)
+        self.ui.combo_for.currentIndexChanged.connect(self.update_edit_for)
+        self.ui.combo_to.currentIndexChanged.connect(self.update_edit_to)
+        self.ui.button_func.clicked.connect(self.execute_functions)
+        self.ui.button_changeTable.clicked.connect(self.update_matrices)
+        self.ui.check_minostPrim.clicked.connect(self.update_mst_combobox)
+        self.ui.check_dekstra.clicked.connect(self.update_paths_combobox)
         for i in range(0, len(self.listFunctions)):
-            self.listFunctions[i].clicked.connect(self.updateFunc)
+            self.listFunctions[i].clicked.connect(self.update_func)
         # --------
 
-    def generate_sorted_adjacency_matrix(self, graph, is_directed=False):
-        sorted_nodes = sorted(set(node for edge in graph for node in edge[:2]))
+    def show_message(self, message: str):
+        self.ui.label_commandline.setText(f">> {message}")
 
-        if is_directed:
-            adjacency_matrix = np.zeros((len(sorted_nodes), len(sorted_nodes)))
-            for edge in graph:
-                i = sorted_nodes.index(edge[0])
-                j = sorted_nodes.index(edge[1])
-                weight = edge[2]
-                adjacency_matrix[i][j] = weight
-        else:
-            adjacency_matrix = np.zeros((len(sorted_nodes), len(sorted_nodes)))
-            for edge in graph:
-                i = sorted_nodes.index(edge[0])
-                j = sorted_nodes.index(edge[1])
-                weight = edge[2]
-                adjacency_matrix[i][j] = weight
-                adjacency_matrix[j][i] = weight
-
-        return adjacency_matrix
-
-    def showError(self, typeError: str):
-        self.ui.label_commandline.setText(f">> {typeError}")
-
-    def showResult(self, typeResult: str):
-        self.ui.label_commandline.setText(f">> {typeResult}")
-
-    def addEdge(self):
-        if (self.validationEdge() == 1):
-            self.setSupportVar_edit()
-            self.currentGraph.add(tuple(self.supportVar))
-            self.update_currentGraph()
-            self.showResult(f"Вершина {tuple(self.supportVar)} добавлена")
-            self.clearSupportVar()
+    def add_edge(self):
+        if self.validation_edge():
+            self.set_support_list_edit()
+            self.current_graph.add(tuple(self.support_list))
+            self.update_current_graph()
+            self.show_message(f"Вершина {tuple(self.support_list)} добавлена")
+            self.clear_support_list()
             return 1
         else:
-            self.showError("Некорректная вершина")
+            self.show_message("Некорректная вершина")
             return 0
 
-    def addGraph(self):
-        localeVar = self.format_string(self.ui.edit_pastegraph.text())
-        if self.validationGraph(localeVar):
-            localeVar = ast.literal_eval(localeVar)
-            self.currentGraph = self.currentGraph.union(localeVar)
-            self.update_currentGraph()
-            self.showResult("Граф объединён")
+    def add_graph(self):
+        locale_var = format_string(self.ui.edit_pastegraph.text())
+        if validation_graph(locale_var):
+            locale_var = ast.literal_eval(locale_var)
+            self.current_graph = self.current_graph.union(locale_var)
+            self.update_current_graph()
+            self.show_message("Граф объединён")
             return 1
         else:
-            self.showError("Некорректный граф")
+            self.show_message("Некорректный граф")
             return 0
 
-    def delEdge(self):
-        if (self.validationEdge() == 1):
-            self.setSupportVar_edit()
-            if tuple(self.supportVar) in self.currentGraph:
-                self.currentGraph.remove(tuple(self.supportVar))
-                self.showResult(f"Вершина {tuple(self.supportVar)} удалена")
-                self.update_currentGraph()
+    def remove_edge(self):
+        if self.validation_edge():
+            self.set_support_list_edit()
+            if tuple(self.support_list) in self.current_graph:
+                self.current_graph.remove(tuple(self.support_list))
+                self.show_message(f"Вершина {tuple(self.support_list)} удалена")
+                self.update_current_graph()
             else:
-                self.showResult(f"Вершина {tuple(self.supportVar)} не найдена")
+                self.show_message(f"Вершина {tuple(self.support_list)} не найдена")
 
-            self.clearSupportVar()
+            self.clear_support_list()
             return 1
         else:
-            self.showError("Некорректная вершина")
+            self.show_message("Некорректная вершина")
             return 0
 
-    def setSupportVar_edit(self):
-        self.supportVar.append(self.ui.edit_for.text())
-        self.supportVar.append(self.ui.edit_to.text())
-        self.supportVar.append(self.ui.spin_dist.value())
+    def set_support_list_edit(self):
+        self.support_list.append(self.ui.edit_for.text())
+        self.support_list.append(self.ui.edit_to.text())
+        self.support_list.append(self.ui.spin_dist.value())
 
         return 1
 
-    def clearSupportVar(self):
-        self.supportVar.clear()
-        self.supportVar = list()
+    def clear_support_list(self):
+        self.support_list.clear()
+        self.support_list = list()
 
         return 1
 
-    def update_currentGraph(self):
-        if len(self.currentGraph) == 0:
+    def update_current_graph(self):
+        if len(self.current_graph) == 0:
             self.ui.edit_thisgraph.setText("")
         else:
-            self.ui.edit_thisgraph.setText(str(sorted(self.currentGraph)))
+            self.ui.edit_thisgraph.setText(str(sorted(self.current_graph)))
 
         return 1
 
-    def clear_currentGraph(self):
-        if len(self.currentGraph) != 0:
-            self.currentGraph.clear()
-            self.clearSupportVar()
-            self.clear_matrix()
-            self.updateMatrix()
-            self.update_currentGraph()
-            self.showResult("Текущий граф удален")
+    def clear_current_graph(self):
+        if len(self.current_graph) != 0:
+            self.current_graph.clear()
+            self.clear_support_list()
+            self.clear_matrices()
+            self.update_matrices()
+            self.update_current_graph()
+            self.show_message("Текущий граф удален")
         else:
-            self.showResult("Текущий граф пуст")
+            self.show_message("Текущий граф пуст")
 
         return 1
 
-    def clear_matrix(self):
-        self.primmatrix.clear()
-        self.dekstramatrix.clear()
-        self.vzaimmatrix.clear()
+    def clear_matrices(self):
+        self.mst_step_list.clear()
+        self.shortest_paths_list.clear()
+        self.mutual_reachability_matrix.clear()
 
-    def format_string(self, input_str):
-        pattern = re.compile(r"\(([^,]+),\s*([^,]+),\s*(\d+)\)")
-        formatted_str = re.sub(pattern, r"('\1', '\2', \3)", input_str)
-        formatted_str = re.sub(r"''", "'", formatted_str)
-        return formatted_str
-
-    def validationGraph(self, testGraph: str):
-        try:
-            tuple_set = eval(testGraph)
-            if isinstance(tuple_set, set):
-                if all(isinstance(item, tuple) and len(item) == 3 and isinstance(item[0], str) and isinstance(item[1],
-                                                                                                              str) and isinstance(
-                        item[2], int) for item in tuple_set):
-                    return True
-        except Exception:
-            pass
-
-        return False
-
-    def validationEdge(self):
+    def validation_edge(self):
         if len(self.ui.edit_for.text()) == 0 or len(self.ui.edit_to.text()) == 0:
             return 0
         else:
             return 1
 
-    def save_lastGraph(self):
+    def save_last_graph(self):
         pass
 
-    def updateEdit_for(self):
+    def update_edit_for(self):
         self.ui.edit_for.setText(self.ui.combo_for.currentText())
 
-    def updateEdit_to(self):
+    def update_edit_to(self):
         self.ui.edit_to.setText(self.ui.combo_to.currentText())
 
-    def updateFunc(self):
+    def update_func(self):
         for i in range(0, len(self.listFunctions)):
             self.listChecked[i] = self.listFunctions[i].isChecked()
 
-    def executeFunctions(self):
+    def execute_functions(self):
         if self.listChecked[0]:  # smej
-            if len(self.currentGraph) == 0:
-                self.showError("Граф пуст")
+            if len(self.current_graph) == 0:
+                self.show_message("Граф пуст")
                 return 0
-            if self.ui.check_orient.isChecked() == True:
-                self.smejmatrix = self.generate_sorted_adjacency_matrix(self.currentGraph,
-                                                                        self.ui.check_orient.isChecked())
+            if self.ui.check_orient.isChecked():
+                self.adjacency_matrix = generate_sorted_adjacency_matrix(self.current_graph,
+                                                                         self.ui.check_orient.isChecked())
             else:
-                self.smejmatrix = self.generate_sorted_adjacency_matrix(self.currentGraph,
-                                                                        self.ui.check_orient.isChecked())
-            self.showResult("Выполнено")
-            self.updateMatrix()
+                self.adjacency_matrix = generate_sorted_adjacency_matrix(self.current_graph,
+                                                                         self.ui.check_orient.isChecked())
+            self.show_message("Выполнено")
+            self.update_matrices()
         if self.listChecked[1]:  # dost
-            if len(self.currentGraph) == 0:
-                self.showError("Граф пуст")
+            if len(self.current_graph) == 0:
+                self.show_message("Граф пуст")
                 return 0
-            self.dostmatrix = self.generate_reachability_matrix(self.smejmatrix)
-            self.showResult("Выполнено")
-            self.updateMatrix()
+            self.reachability_matrix = generate_reachability_matrix(self.adjacency_matrix)
+            self.show_message("Выполнено")
+            self.update_matrices()
         if self.listChecked[2]:  # vzaim
-            if len(self.currentGraph) == 0:
-                self.showError("Граф пуст")
+            if len(self.current_graph) == 0:
+                self.show_message("Граф пуст")
                 return 0
-            self.vzaimmatrix = self.generate_mutual_reachability_matrix(self.smejmatrix)
-            self.showResult("Выполнено")
-            self.updateMatrix()
+            self.mutual_reachability_matrix = generate_mutual_reachability_matrix(self.adjacency_matrix)
+            self.show_message("Выполнено")
+            self.update_matrices()
         if self.listChecked[3]:  # print graph
-            if len(self.currentGraph) == 0:
-                self.showError("Граф пуст")
+            if len(self.current_graph) == 0:
+                self.show_message("Граф пуст")
                 return 0
-            self.printGraph(self.currentGraph, self.ui.check_orient.isChecked())
-            self.showResult("Выполнено")
+            show_graph(self.current_graph, self.ui.check_orient.isChecked())
+            self.show_message("Выполнено")
         if self.listChecked[4]:  # eiler
-            is_eulerian, is_semi_eulerian = self.is_eulerian(self.currentGraph, self.ui.check_orient.isChecked())
-            if len(self.currentGraph) == 0:
-                self.showError("Граф пуст")
+            is_eulerian, is_semi_eulerian = is_eulerians(self.current_graph, self.ui.check_orient.isChecked())
+            if len(self.current_graph) == 0:
+                self.show_message("Граф пуст")
                 return 0
             self.ui.edit_eiler.setText(f"Эйлеровость, полуэйлеровость: {is_eulerian}, {is_semi_eulerian}")
-            self.showResult("Выполнено")
+            self.show_message("Выполнено")
         if self.listChecked[5]:  # prim
             if self.ui.check_orient.isChecked():
-                self.showError("Граф должен быть неориентированный (Прим)")
+                self.show_message("Граф должен быть неориентированный (Прим)")
                 return 0
-            self.primmatrix = self.Prim(self.currentGraph, self.ui.combo_vertices.currentText())
-            self.updateMatrix()
-            self.showResult("Выполнено")
+            self.mst_step_list = create_mst_steps(self.current_graph, self.ui.combo_vertices.currentText())
+            self.update_matrices()
+            self.show_message("Выполнено")
         if self.listChecked[6]:
-            if len(self.currentGraph) == 0:
-                self.showError("Граф пуст")
+            if len(self.current_graph) == 0:
+                self.show_message("Граф пуст")
                 return 0
 
-            result = self.strong_components_weighted(self.currentGraph)
+            result = strong_components_weighted(self.current_graph)
             sorted_sets = [sorted(s) for s in result]
             sorted_list = sorted(sorted_sets, key=lambda s: s[0])
 
@@ -255,103 +208,44 @@ class MainWindow(QMainWindow):
                 self.ui.edit_eiler.setText(support_text + f"; Компоненты сил. связности: {sorted_list}")
             else:
                 self.ui.edit_eiler.setText(f"Компоненты сил. связности: {sorted_list}")
-            self.showResult("Выполнено")
+            self.show_message("Выполнено")
 
         if self.listChecked[7]:
-            if len(self.currentGraph) == 0:
-                self.showError("Граф пуст")
+            if len(self.current_graph) == 0:
+                self.show_message("Граф пуст")
                 return 0
-            self.dekstramatrix = self.create_dekstra(self.currentGraph, self.ui.combo_vertices_2.currentText())
-            self.updateMatrix()
-            self.showResult("Выполнено")
+            self.shortest_paths_list = create_shortest_paths(self.current_graph,
+                                                             self.ui.combo_vertices_2.currentText())
+            self.update_matrices()
+            self.show_message("Выполнено")
         if self.listChecked[8]:
             pass
         if all(element == False for element in self.listChecked):
-            self.showError("Ни одна функция не выбрана")
+            self.show_message("Ни одна функция не выбрана")
 
-    def update_combobox_state(self):
-        if len(self.currentGraph) == 0:
-            self.showError("Граф пуст")
+    def update_mst_combobox(self):
+        if len(self.current_graph) == 0:
+            self.show_message("Граф пуст")
             return 0
         self.ui.combo_vertices.clear()
         vertices = set()
-        for edge in self.currentGraph:
+        for edge in self.current_graph:
             vertices.add(edge[0])
             vertices.add(edge[1])
         self.ui.combo_vertices.addItems(sorted(vertices))
         self.ui.combo_vertices.setEnabled(self.ui.check_minostPrim.isChecked())
 
-    def update_combobox_state_2(self):
-        if len(self.currentGraph) == 0:
-            self.showError("Граф пуст")
+    def update_paths_combobox(self):
+        if len(self.current_graph) == 0:
+            self.show_message("Граф пуст")
             return 0
         self.ui.combo_vertices_2.clear()
         vertices = set()
-        for edge in self.currentGraph:
+        for edge in self.current_graph:
             vertices.add(edge[0])
             vertices.add(edge[1])
         self.ui.combo_vertices_2.addItems(sorted(vertices))
         self.ui.combo_vertices_2.setEnabled(self.ui.check_dekstra.isChecked())
-
-    def find_shortest_path(self, graph_data, start, end, allowed_nodes=None):
-        g = nx.DiGraph()
-        g.add_weighted_edges_from(graph_data)
-
-        if allowed_nodes:
-            g = g.subgraph(allowed_nodes)
-
-        try:
-            shortest_path = nx.shortest_path(g, source=start, target=end, weight='weight')
-            distance = nx.shortest_path_length(g, source=start, target=end, weight='weight')
-            if len(shortest_path) > 1:
-                return [shortest_path[len(shortest_path) - 2], distance]
-            return [shortest_path[0], distance]
-        except nx.NetworkXNoPath:
-            return ["-", "-"]
-        except ValueError:
-            return ["-", "-"]
-        except nx.NodeNotFound:
-            return ["-", "-"]
-
-    def get_all_nodes(self, graph_data):
-        g = nx.DiGraph()
-        g.add_weighted_edges_from(graph_data)
-        return sorted(list(g.nodes()))
-
-    def create_dekstra(self, graph, start_node):
-        nodes = self.get_all_nodes(graph)
-        step = 0
-        checked_nodes = sorted({start_node})
-        list_steps = []
-        while checked_nodes != nodes:
-            distances = []
-            paths = []
-            for i in nodes:
-                end_node = i
-                allowed_nodes = checked_nodes.copy()
-                allowed_nodes.append(end_node)
-                path_dis = self.find_shortest_path(graph, start_node, end_node, allowed_nodes)
-                if path_dis[0] == end_node:
-                    paths.append("-")
-                else:
-                    paths.append(path_dis[0])
-                distances.append(path_dis[1])
-
-            distances = [float('inf') if isinstance(elem, str) else elem for elem in distances]
-            sup_dis = distances.copy()
-            for i in range(step + 1):
-                sup_dis.remove(min(sup_dis))
-
-            min_dis = min(sup_dis)
-            min_index = distances.index(min_dis)
-            add_node = nodes[min_index]
-            distances = ['-' if isinstance(elem, float) else elem for elem in distances]
-            list_steps.append([step, checked_nodes.copy(), add_node, min_dis, distances, paths])
-            checked_nodes.append(add_node)
-            checked_nodes.sort()
-            step += 1
-
-        return list_steps
 
     def fill_table(self, table, data):
         table.setRowCount(len(data))
@@ -367,68 +261,27 @@ class MainWindow(QMainWindow):
         table.resizeColumnsToContents()
         table.resizeRowsToContents()
 
-    def generate_reachability_matrix(self, adjacency_matrix):
-        num_vertices = len(adjacency_matrix)
-        reach_matrix = np.array(adjacency_matrix)
-
-        for k in range(num_vertices):
-            for i in range(num_vertices):
-                for j in range(num_vertices):
-                    reach_matrix[i][j] = reach_matrix[i][j] or (reach_matrix[i][k] and reach_matrix[k][j])
-
-        np.fill_diagonal(reach_matrix, 1)
-        return (reach_matrix > 0).astype(int)
-
-    def generate_mutual_reachability_matrix(self, adjacency_matrix):
-        reach_matrix = self.generate_reachability_matrix(adjacency_matrix)
-        mutual_reach_matrix = np.logical_and(reach_matrix, np.transpose(reach_matrix))
-
-        np.fill_diagonal(mutual_reach_matrix, 1)
-        return mutual_reach_matrix.astype(int)
-
-    def is_eulerian(self, graph, is_directed=False):
-        in_degree = defaultdict(int)
-        out_degree = defaultdict(int)
-
-        for edge in graph:
-            out_degree[edge[0]] += 1
-            in_degree[edge[1]] += 1
-
-        odd_degree_count = sum(1 for vertex in set(in_degree.keys()) | set(out_degree.keys()) if
-                               (in_degree[vertex] + out_degree[vertex]) % 2 != 0)
-
-        is_eulerian = odd_degree_count == 0
-        is_semi_eulerian = odd_degree_count == 2 if not is_directed else False
-
-        return is_eulerian, is_semi_eulerian
-
-    def strong_components_weighted(self, graph_edges):
-        G = nx.DiGraph()
-        G.add_weighted_edges_from(graph_edges)
-
-        return sorted(list(nx.strongly_connected_components(G)))
-
-    def updateMatrix(self):
+    def update_matrices(self):
         selected_matrices = []
 
-        if self.ui.check_smej.isChecked() and len(self.smejmatrix) != 0:
-            self.smejmatrix[self.smejmatrix > 0] = 1
-            self.smejmatrix[self.smejmatrix <= 0] = 0
+        if self.ui.check_smej.isChecked() and len(self.adjacency_matrix) != 0:
+            self.adjacency_matrix[self.adjacency_matrix > 0] = 1
+            self.adjacency_matrix[self.adjacency_matrix <= 0] = 0
 
-            selected_matrices.append(("Матрица смежности", self.smejmatrix.astype(int)))
+            selected_matrices.append(("Матрица смежности", self.adjacency_matrix.astype(int)))
 
-        if self.ui.check_dost.isChecked() and len(self.dostmatrix) != 0:
-            selected_matrices.append(("Матрица достижимости", self.dostmatrix))
+        if self.ui.check_dost.isChecked() and len(self.reachability_matrix) != 0:
+            selected_matrices.append(("Матрица достижимости", self.reachability_matrix))
 
-        if self.ui.check_vzaim.isChecked() and len(self.vzaimmatrix) != 0:
-            selected_matrices.append(("Матрица взаимной достижимости", self.vzaimmatrix))
+        if self.ui.check_vzaim.isChecked() and len(self.mutual_reachability_matrix) != 0:
+            selected_matrices.append(("Матрица взаимной достижимости", self.mutual_reachability_matrix))
 
-        if self.ui.check_minostPrim.isChecked() and len(self.primmatrix) != 0:
-            selected_matrices.append(("Минимальное остовное дерево (Прим)", self.primmatrix))
+        if self.ui.check_minostPrim.isChecked() and len(self.mst_step_list) != 0:
+            selected_matrices.append(("Минимальное остовное дерево (Прим)", self.mst_step_list))
 
-        if self.ui.check_dekstra.isChecked() and len(self.dekstramatrix) != 0:
+        if self.ui.check_dekstra.isChecked() and len(self.shortest_paths_list) != 0:
             selected_matrices.append(
-                (f"Кратчайшие пути из вершины {self.ui.combo_vertices_2.currentText()}", self.dekstramatrix))
+                (f"Кратчайшие пути из вершины {self.ui.combo_vertices_2.currentText()}", self.shortest_paths_list))
 
         if selected_matrices:
             current_matrix, current_data = selected_matrices[self.currentMatrix - 1]
@@ -436,67 +289,6 @@ class MainWindow(QMainWindow):
             self.ui.edit_currentTable.setText(current_matrix)
 
             self.currentMatrix = (self.currentMatrix % len(selected_matrices)) + 1
-
-    def printGraph(self, graph, is_directed: bool):
-        if is_directed:
-            G = nx.DiGraph()
-            G.add_weighted_edges_from(graph)
-
-            pos = nx.circular_layout(G)
-            labels = nx.get_edge_attributes(G, 'weight')
-
-            nx.draw(G, pos, with_labels=True, node_size=700, node_color="skyblue", font_size=12, font_color="red")
-            nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
-
-            plt.title("Ориентированный граф")
-            plt.show()
-        else:
-            G = nx.Graph()
-            G.add_weighted_edges_from(graph)
-
-            min_spanning_tree = nx.minimum_spanning_tree(G)
-
-            colors = nx.coloring.greedy_color(G, strategy='largest_first')
-
-            pos = nx.circular_layout(G)
-            labels = nx.get_edge_attributes(G, 'weight')
-
-            node_colors = [colors[node] for node in G.nodes()]
-            edge_colors = ['red' if edge in min_spanning_tree.edges() else 'gray' for edge in G.edges()]
-            nx.draw(G, pos, with_labels=True, node_size=700, node_color=node_colors, font_size=12, font_color="red",
-                    edge_color=edge_colors)
-            nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
-
-            plt.title("Неориентированный граф с минимальным остовным деревом")
-            plt.show()
-
-    def Prim(self, graph_edges, start_node):
-        selected_nodes = {start_node}
-
-        selected_edges = []
-
-        while len(selected_nodes) < len(set(node for edge in graph_edges for node in edge[:2])):
-            possible_edges = [edge for edge in graph_edges if
-                              edge[0] in selected_nodes and edge[1] not in selected_nodes or
-                              edge[1] in selected_nodes and edge[0] not in selected_nodes]
-
-            min_edge = min(possible_edges, key=lambda x: x[2])
-            selected_edges.append(min_edge)
-            selected_nodes.add(min_edge[0] if min_edge[1] in selected_nodes else min_edge[1])
-
-        mst_list = []
-        addonlist = [start_node]
-
-        for i in range(len(selected_edges)):
-            element1 = str()
-            for element in selected_edges[i][:2]:
-                if element not in addonlist:
-                    element1 = element
-            suplist = [i + 1, sorted(addonlist.copy()), selected_edges[i][:-1], element1, selected_edges[i][2]]
-            mst_list.append(suplist)
-            addonlist.append(element1)
-
-        return mst_list
 
 
 if __name__ == "__main__":
