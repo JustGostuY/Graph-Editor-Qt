@@ -112,11 +112,11 @@ class MainWindow(QMainWindow):
 
     def clear_current_graph(self):
         if len(self.current_graph) != 0:
+            self.update_current_graph()
             self.current_graph.clear()
             self.clear_support_list()
             self.clear_matrices()
             self.update_matrices()
-            self.update_current_graph()
             self.show_message("Текущий граф удален")
         else:
             self.show_message("Текущий граф пуст")
@@ -126,7 +126,9 @@ class MainWindow(QMainWindow):
     def clear_matrices(self):
         self.mst_step_list.clear()
         self.shortest_paths_list.clear()
-        self.mutual_reachability_matrix.clear()
+        self.reachability_matrix = list(self.reachability_matrix).clear()
+        self.adjacency_matrix = list(self.adjacency_matrix).clear()
+        self.mutual_reachability_matrix = list(self.mutual_reachability_matrix).clear()
 
     def validation_edge(self):
         if len(self.ui.edit_for.text()) == 0 or len(self.ui.edit_to.text()) == 0:
