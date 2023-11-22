@@ -114,8 +114,8 @@ class MainWindow(QMainWindow):
         if len(self.current_graph) != 0:
             self.update_current_graph()
             self.current_graph.clear()
-            self.clear_support_list()
             self.clear_matrices()
+            self.clear_support_list()
             self.update_matrices()
             self.show_message("Текущий граф удален")
         else:

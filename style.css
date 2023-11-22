@@ -358,6 +358,7 @@ QSlider::groove:horizontal {
 	height: 5px;
 	background: #04b97f;
 }
+
 QSlider::groove:vertical {
 	width: 5px;
 	background: #04b97f;
